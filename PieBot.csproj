@@ -141,6 +141,7 @@
     <Content Include="Web.config" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Processor\DataUpdateResponse.cs" />
     <Compile Include="Processor\Pie.cs" />
     <Compile Include="Processor\PieBotData.cs" />
     <Compile Include="WebApiConfig.cs" />
