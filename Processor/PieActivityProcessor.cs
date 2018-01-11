@@ -9,47 +9,6 @@ using BotCommon.Storage;
 
 namespace PieBot
 {
-    public class Pie
-    {
-        public string Name { get; set; }
-
-        public List<string> Upvotes { get; set; }
-
-        public List<string> Downvotes { get; set; }
-
-        public int GetTotalVote() => this.Upvotes.Count - this.Downvotes.Count;
-
-        internal string GetNameWithVotes(bool detailed)
-        {
-            string pieSummary = $"  **{this.Name}**: {this.GetTotalVote()} (+{this.Upvotes.Count}) (-{this.Downvotes.Count})";
-            if (detailed)
-            {
-                List<string> summaryDetails = new List<string>();
-                if (this.Upvotes.Any())
-                {
-                    summaryDetails.Add("\n\n*Upvotes:*");
-                    for (int i = 0; i < Upvotes.Count; i++)
-                    {
-                        summaryDetails.Add($"    {this.Upvotes[i]}");
-                    }
-                }
-
-                if (this.Downvotes.Any())
-                {
-                    summaryDetails.Add($"{(!this.Upvotes.Any() ? "\n\n" : string.Empty)}*Downvotes:*");
-                    for (int i = 0; i < Downvotes.Count; i++)
-                    {
-                        summaryDetails.Add($"    {this.Downvotes[i]}");
-                    }
-                }
-
-                pieSummary += string.Join("\n\n", summaryDetails);
-            }
-
-            return pieSummary;
-        }
-    }
-    
     public class PieActivityProcessor : IActivityProcessor
     {
         private readonly string GeneralContainer = "pie-submissions";
@@ -57,16 +16,9 @@ namespace PieBot
         
         public async Task<ActivityResponse> ProcessActivityAsync(IStore blobStore, ActivityRequest request)
         {
-            List<Pie> pies;
+            PieBotData pies = await this.GetOrCreatePiesAsync(blobStore).ConfigureAwait(false);
             bool dataUpdate = false;
-            if (!await blobStore.ExistsAsync(this.GeneralContainer, this.PieBlob).ConfigureAwait(false))
-            {
-                pies = new List<Pie>();
-            }
-            else
-            {
-                pies = await blobStore.GetAsync<List<Pie>>(this.GeneralContainer, this.PieBlob).ConfigureAwait(false);
-            }
+            
 
             string[] input = request.SanitizedText.Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
             if (input.Length == 0)
@@ -77,7 +29,7 @@ namespace PieBot
             string responseText = string.Empty;
             if (input[0].Equals("add", StringComparison.OrdinalIgnoreCase))
             {
-                responseText = AddPieAction(pies, ref dataUpdate, input);
+                responseText = AddPieAction(pies.KnownPies, ref dataUpdate, input);
             }
             else if (input[0].Equals("vote", StringComparison.OrdinalIgnoreCase) || input[0].Equals("upvote", StringComparison.OrdinalIgnoreCase))
             {
@@ -86,13 +38,13 @@ namespace PieBot
                 {
                     responseText = "I did not receive a pie to vote on.";
                 }
-                else if (!pies.Any(pie => pie.Name.Equals(pieName, StringComparison.OrdinalIgnoreCase)))
+                else if (!pies.KnownPies.Any(pie => pie.Name.Equals(pieName, StringComparison.OrdinalIgnoreCase)))
                 {
                     responseText = $"I could not find '{pieName}' pie in the request list.";
                 }
                 else
                 {
-                    Pie pie = pies.First(p => p.Name.Equals(pieName, StringComparison.OrdinalIgnoreCase));
+                    Pie pie = pies.KnownPies.First(p => p.Name.Equals(pieName, StringComparison.OrdinalIgnoreCase));
                     string userName = request.From;
 
                     bool added;
@@ -106,7 +58,7 @@ namespace PieBot
                         added = true;
                         pie.Upvotes.Add(userName);
                     }
-                    
+
                     dataUpdate = true;
                     responseText = $"{(added ? "Added" : "Removed")} an upvote for the '{pieName}' pie, which now has (+{pie.Upvotes.Count}, -{pie.Downvotes.Count}) votes.";
                 }
@@ -118,13 +70,13 @@ namespace PieBot
                 {
                     responseText = "I did not receive a pie to vote on.";
                 }
-                else if (!pies.Any(pie => pie.Name.Equals(pieName, StringComparison.OrdinalIgnoreCase)))
+                else if (!pies.KnownPies.Any(pie => pie.Name.Equals(pieName, StringComparison.OrdinalIgnoreCase)))
                 {
                     responseText = $"I could not find '{pieName}' pie in the request list.";
                 }
                 else
                 {
-                    Pie pie = pies.First(p => p.Name.Equals(pieName, StringComparison.OrdinalIgnoreCase));
+                    Pie pie = pies.KnownPies.First(p => p.Name.Equals(pieName, StringComparison.OrdinalIgnoreCase));
                     string userName = request.From;
 
                     bool added;
@@ -138,22 +90,26 @@ namespace PieBot
                         added = true;
                         pie.Downvotes.Add(userName);
                     }
-                    
+
                     dataUpdate = true;
                     responseText = $"{(added ? "Added" : "Removed")} a downvote for the '{pieName}' pie, which now has (+{pie.Upvotes.Count}, -{pie.Downvotes.Count}) votes.";
                 }
             }
             else if (input[0].Equals("rank", StringComparison.OrdinalIgnoreCase))
             {
-                responseText = RankAction(pies, input);
+                responseText = RankAction(pies.KnownPies, input);
             }
             else if (input[0].Equals("list", StringComparison.OrdinalIgnoreCase))
             {
-                responseText = "**Pies**:\n\n" + string.Join("\n\n", pies.OrderBy(pie => pie.Name).Select(pie => pie.Name));
+                responseText = "**Pies**:\n\n" + string.Join("\n\n", pies.KnownPies.OrderBy(pie => pie.Name).Select(pie => pie.Name));
             }
             else if (input[0].Equals("clearvote", StringComparison.OrdinalIgnoreCase))
             {
-                responseText = ClearVoteAction(pies, ref dataUpdate, input);
+                responseText = ClearVoteAction(pies.KnownPies, ref dataUpdate, input);
+            }
+            else if (input[0].Equals("history", StringComparison.OrdinalIgnoreCase))
+            {
+                responseText = "No history yet! WIP!";
             }
             else if (input[0].Equals("help", StringComparison.OrdinalIgnoreCase))
             {
@@ -174,6 +130,40 @@ namespace PieBot
             }
 
             return new ActivityResponse(string.Join("\r\n\r\n", responseText));
+        }
+
+        private async Task<PieBotData> GetOrCreatePiesAsync(IStore blobStore)
+        {
+            PieBotData pies;
+            if (!await blobStore.ExistsAsync(this.GeneralContainer, this.PieBlob).ConfigureAwait(false))
+            {
+                pies = new PieBotData()
+                {
+                    KnownPies = new List<Pie>(),
+                    CreatedPies = new Dictionary<DateTime, string>(),
+                };
+            }
+            else
+            {
+                // Perform a forwards-conversion of our old List<Pie> data structure into a PieBotData structure, if necessary.
+                try
+                {
+                    pies = await blobStore.GetAsync<PieBotData>(this.GeneralContainer, this.PieBlob).ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                    List<Pie> listOfPiesOnly = await blobStore.GetAsync<List<Pie>>(this.GeneralContainer, this.PieBlob).ConfigureAwait(false);
+                    pies = new PieBotData()
+                    {
+                        KnownPies = listOfPiesOnly,
+                        CreatedPies = new Dictionary<DateTime, string>(),
+                    };
+
+                    await blobStore.CreateOrUpdateAsync(this.GeneralContainer, this.PieBlob, pies).ConfigureAwait(false);
+                }
+            }
+
+            return pies;
         }
 
         private static string AddPieAction(List<Pie> pies, ref bool dataUpdate, string[] input)

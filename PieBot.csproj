@@ -141,9 +141,11 @@
     <Content Include="Web.config" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Processor\Pie.cs" />
+    <Compile Include="Processor\PieBotData.cs" />
     <Compile Include="WebApiConfig.cs" />
     <Compile Include="MessagesController.cs" />
-    <Compile Include="PieActivityProcessor.cs" />
+    <Compile Include="Processor\PieActivityProcessor.cs" />
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
