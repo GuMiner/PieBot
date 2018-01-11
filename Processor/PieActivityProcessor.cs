@@ -49,10 +49,14 @@ namespace PieBot
                     response = new DataUpdateResponse(false, RankAction(pies.KnownPies, input));
                     break;
                 case "list":
-                    response = new DataUpdateResponse(false, "**Pies**:\n\n" + string.Join("\n\n", pies.KnownPies.OrderBy(pie => pie.Name).Select(pie => pie.Name)));
+                    // List out pies and how many were created.
+                    response = new DataUpdateResponse(false, "**Pies**:\n\n" + string.Join("\n\n", pies.KnownPies.OrderBy(pie => pie.Name).Select(pie => $"{pie.Name}: {pies.CreatedPies.Count(item => pie.Name.Equals(item.Value, StringComparison.OrdinalIgnoreCase))}")));
+                    break;
+                case "addhistory":
+                    response = AddPieHistoryAction(pies, arguments);
                     break;
                 case "history":
-                    response = new DataUpdateResponse(false, "TODO");
+                    response = new DataUpdateResponse(false, "**Created Pies**:\n\n" + string.Join("\n\n", pies.CreatedPies.OrderByDescending(pie => pie.Key).Select(pie => $"{pie.Key.ToString("MM/dd/yyyy")}: {pie.Value}")));
                     break;
                 case "help":
                     response = new DataUpdateResponse(false, HelpAction());
@@ -69,6 +73,31 @@ namespace PieBot
             }
 
             return new ActivityResponse(response.Response);
+        }
+
+        private DataUpdateResponse AddPieHistoryAction(PieBotData pies, IEnumerable<string> arguments)
+        {
+            if (arguments.Count() < 2)
+            {
+                return new DataUpdateResponse(false, "Did not find enough elements to add historical pie information!");
+            }
+
+            string pieName;
+            string newPieName = string.Join(" ", arguments.Skip(1));
+            
+            DateTime pieCreationTime;
+            bool parsedCreationTime = DateTime.TryParse(arguments.First(), out pieCreationTime);
+            if (!parsedCreationTime)
+            {
+                return new DataUpdateResponse(false, "Could not parse when the historical pie was created!");
+            }
+            else if (pies.CreatedPies.TryGetValue(pieCreationTime, out pieName))
+            {
+                return new DataUpdateResponse(false, $"The {pieName} pie was create on this date. This conflicts with new pie {newPieName}. Please choose a slightly different time.");
+            }
+
+            pies.CreatedPies.Add(pieCreationTime, newPieName);
+            return new DataUpdateResponse(true, $"The {newPieName} historical pie was added.");
         }
 
         private DataUpdateResponse VotePieAction(List<Pie> pies, string userName, string voteTypeName, Func<Pie, List<string>> pieVoteTypeSelector, IEnumerable<string> arguments)
@@ -176,7 +205,7 @@ namespace PieBot
         private static string HelpAction()
         {
             return "PiBot is a distributed pie request submission and voting system, as requested by Helen Huang." +
-                   "\n\n **list** --Lists the names of all pies known to *piebot*" +
+                   "\n\n **list** --Lists the names of all pies known to *piebot* and how many times they were created." +
                    "\n\n **vote NameOfPie** -- Upvotes a pie request. **upvote** is a valid synonym. Voting twice will clear your upvote." +
                    "\n\n **downvote NameOfPie** -- Downvotes a pie request. Downvoting twice will clear your downvote. You are allowed to both upvote and downvote a pie." +
                    "\n\n **rank** -- Lists all pies in ranked order, based on upvotes minus downvotes. Skips pies with no votes." +
