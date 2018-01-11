@@ -145,22 +145,7 @@ namespace PieBot
             }
             else
             {
-                // Perform a forwards-conversion of our old List<Pie> data structure into a PieBotData structure, if necessary.
-                try
-                {
-                    pies = await blobStore.GetAsync<PieBotData>(this.GeneralContainer, this.PieBlob).ConfigureAwait(false);
-                }
-                catch (Exception)
-                {
-                    List<Pie> listOfPiesOnly = await blobStore.GetAsync<List<Pie>>(this.GeneralContainer, this.PieBlob).ConfigureAwait(false);
-                    pies = new PieBotData()
-                    {
-                        KnownPies = listOfPiesOnly,
-                        CreatedPies = new Dictionary<DateTime, string>(),
-                    };
-
-                    await blobStore.CreateOrUpdateAsync(this.GeneralContainer, this.PieBlob, pies).ConfigureAwait(false);
-                }
+                pies = await blobStore.GetAsync<PieBotData>(this.GeneralContainer, this.PieBlob).ConfigureAwait(false);
             }
 
             return pies;
