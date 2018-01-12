@@ -2,6 +2,8 @@ PieBot
 =========
 Defines a simple bot for distributed pie creation suggestions.
 
+![Demo](./Demo.png)
+
 Purpose
 -------
 PieBot has been providing useful team-focused food suggestions since its creation, late 2017.
